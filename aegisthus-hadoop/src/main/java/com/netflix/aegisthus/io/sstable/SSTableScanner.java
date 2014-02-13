@@ -15,6 +15,20 @@
  */
 package com.netflix.aegisthus.io.sstable;
 
+import com.google.common.collect.Maps;
+import org.apache.cassandra.db.ColumnSerializer;
+import org.apache.cassandra.db.CounterColumn;
+import org.apache.cassandra.db.DeletedColumn;
+import org.apache.cassandra.db.ExpiringColumn;
+import org.apache.cassandra.db.IColumn;
+import org.apache.cassandra.db.OnDiskAtom;
+import org.apache.cassandra.db.RangeTombstone;
+import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.marshal.BytesType;
+import org.apache.cassandra.io.sstable.Descriptor;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import java.io.BufferedInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -24,23 +38,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.cassandra.db.ColumnSerializer;
-import org.apache.cassandra.db.CounterColumn;
-import org.apache.cassandra.db.DeletedColumn;
-import org.apache.cassandra.db.DeletionInfo;
-import org.apache.cassandra.db.ExpiringColumn;
-import org.apache.cassandra.db.IColumn;
-import org.apache.cassandra.db.OnDiskAtom;
-import org.apache.cassandra.db.RangeTombstone;
-import org.apache.cassandra.db.marshal.AbstractType;
-import org.apache.cassandra.db.marshal.BytesType;
-import org.apache.cassandra.io.sstable.Descriptor;
-import org.hamcrest.core.IsInstanceOf;
-
-import com.google.common.collect.Maps;
 
 /**
  * This class serializes each row in a SSTable to a string.
@@ -236,7 +233,7 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
                 sb.append("[\"");
                 sb.append(cn);
                 sb.append("\", \"");
-                sb.append(getConvertor(cn).getString(column.value()));
+                sb.append(getConvertor(getColumnKey(cn)).getString(column.value()));
                 sb.append("\", ");
                 sb.append(column.timestamp());
 
@@ -266,8 +263,14 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 			}
 		}
 	}
-	
-	private String getSanitizedName(ByteBuffer name, AbstractType convertor) {
+
+    private String getColumnKey(String columnName) {
+        String columnKey = columnName.substring(columnName.lastIndexOf(":") + 1);
+        LOG.info(String.format("For column name %s column key: %s", columnName, columnKey));
+        return columnKey;
+    }
+
+    private String getSanitizedName(ByteBuffer name, AbstractType convertor) {
 	    return convertor.getString(name)
                     .replaceAll("[\\s\\p{Cntrl}]", " ")
                     .replace("\\", "\\\\");

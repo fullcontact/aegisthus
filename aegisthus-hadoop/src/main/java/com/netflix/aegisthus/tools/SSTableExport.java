@@ -15,6 +15,23 @@
  */
 package com.netflix.aegisthus.tools;
 
+import com.netflix.aegisthus.io.sstable.OffsetScanner;
+import com.netflix.aegisthus.io.sstable.SSTableScanner;
+import com.netflix.aegisthus.io.sstable.SSTableSplitScanner;
+import com.netflix.aegisthus.io.sstable.compression.CompressionInputStream;
+import com.netflix.aegisthus.io.sstable.compression.CompressionMetadata;
+import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.marshal.TypeParser;
+import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.cassandra.exceptions.SyntaxException;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
+
 import java.io.BufferedInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -25,24 +42,6 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-
-import org.apache.cassandra.exceptions.ConfigurationException;
-import org.apache.cassandra.exceptions.SyntaxException;
-import org.apache.cassandra.db.marshal.AbstractType;
-import org.apache.cassandra.db.marshal.TypeParser;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
-
-import com.netflix.aegisthus.io.sstable.OffsetScanner;
-import com.netflix.aegisthus.io.sstable.SSTableScanner;
-import com.netflix.aegisthus.io.sstable.SSTableSplitScanner;
-import com.netflix.aegisthus.io.sstable.compression.CompressionInputStream;
-import com.netflix.aegisthus.io.sstable.compression.CompressionMetadata;
 
 public class SSTableExport {
 
@@ -147,6 +146,17 @@ public class SSTableExport {
 			try {
 				convertors = new HashMap<String, AbstractType>();
 				convertors.put(SSTableScanner.COLUMN_NAME_KEY, TypeParser.parse(cmd.getOptionValue(COLUMN_NAME_TYPE)));
+                convertors.put(SSTableScanner.KEY, TypeParser.parse("UTF8Type"));
+                convertors.put("searched_value",  TypeParser.parse("UTF8Type"));
+                convertors.put("searched_type",  TypeParser.parse("UTF8Type"));
+                convertors.put("st_name",  TypeParser.parse("UTF8Type"));
+                convertors.put("version",  TypeParser.parse("UTF8Type"));
+                convertors.put("last_update",  TypeParser.parse("DateType"));
+                convertors.put("rawdata",  TypeParser.parse("UTF8Type"));
+                convertors.put("result",  TypeParser.parse("UTF8Type"));
+                convertors.put("statuscode",  TypeParser.parse("UTF8Type"));
+                convertors.put("statustext",  TypeParser.parse("UTF8Type"));
+                convertors.put("uri",  TypeParser.parse("UTF8Type"));
 			} catch (ConfigurationException e) {
 				System.err.println(e.getMessage());
 				HelpFormatter formatter = new HelpFormatter();
@@ -192,7 +202,7 @@ public class SSTableExport {
 			}
 			DataInputStream input = new DataInputStream(inputStream);
 			//TODO: should switch over to Cassandra's mechanism
-			boolean promotedIndex = ssTableFileName.matches(".*/[^/]+-ib-[^/]+$");
+			boolean promotedIndex = ssTableFileName.matches(".*/[^/]+-ic-[^/]+$");
 
 			if (cmd.hasOption(END)) {
 				long end = Long.valueOf(cmd.getOptionValue(END));

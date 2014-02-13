@@ -15,12 +15,11 @@
  */
 package com.netflix;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.netflix.aegisthus.input.AegisthusInputFormat;
+import com.netflix.aegisthus.mapred.reduce.CassReducer;
+import com.netflix.aegisthus.tools.DirectoryWalker;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
@@ -37,17 +36,13 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
-import org.apache.hadoop.mapreduce.lib.jobcontrol.ControlledJob;
-import org.apache.hadoop.mapreduce.lib.jobcontrol.JobControl;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.netflix.aegisthus.input.AegisthusInputFormat;
-import com.netflix.aegisthus.mapred.reduce.CassReducer;
-import com.netflix.aegisthus.tools.DirectoryWalker;
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 
 public class Aegisthus extends Configured implements Tool {
 	public static class Map extends Mapper<Text, Text, Text, Text> {
@@ -127,6 +122,23 @@ public class Aegisthus extends Configured implements Tool {
 	@Override
 	public int run(String[] args) throws Exception {
 		Job job1 = new Job(getConf());
+
+        job1.getConfiguration().set("mapred.child.java.opts", "-Xmx2G");
+        job1.getConfiguration().set("mapred.output.compress", "true");
+        job1.getConfiguration().set("mapred.output.compression.codec", "org.apache.hadoop.io.compress.GzipCodec");
+        job1.getConfiguration().set("aegisthus.columntype", "CompositeType(UTF8Type, UTF8Type, UTF8Type, UTF8Type)");
+        job1.getConfiguration().set("aegisthus.keytype", "UTF8Type");
+
+        job1.getConfiguration().set("searched_value", "UTF8Type");
+        job1.getConfiguration().set("searched_type", "UTF8Type");
+        job1.getConfiguration().set("st_name", "UTF8Type");
+        job1.getConfiguration().set("version", "UTF8Type");
+        job1.getConfiguration().set("last_update", "DateType");
+        job1.getConfiguration().set("rawdata", "UTF8Type");
+        job1.getConfiguration().set("result", "UTF8Type");
+        job1.getConfiguration().set("statuscode", "UTF8Type");
+        job1.getConfiguration().set("statustext", "UTF8Type");
+        job1.getConfiguration().set("uri", "UTF8Type");
 
 		job1.setJarByClass(Aegisthus.class);
 		CommandLine cl = getOptions(args);
