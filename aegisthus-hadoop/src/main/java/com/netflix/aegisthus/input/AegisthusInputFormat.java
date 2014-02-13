@@ -15,17 +15,18 @@
  */
 package com.netflix.aegisthus.input;
 
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.cassandra.exceptions.ConfigurationException;
-import org.apache.cassandra.exceptions.SyntaxException;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.netflix.aegisthus.input.AegSplit.Type;
+import com.netflix.aegisthus.input.readers.CommitLogRecordReader;
+import com.netflix.aegisthus.input.readers.JsonRecordReader;
+import com.netflix.aegisthus.input.readers.SSTableRecordReader;
+import com.netflix.aegisthus.io.sstable.OffsetScanner;
+import com.netflix.aegisthus.io.sstable.SSTableScanner;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.TypeParser;
+import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.cassandra.exceptions.SyntaxException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.BlockLocation;
@@ -40,14 +41,12 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.netflix.aegisthus.input.AegSplit.Type;
-import com.netflix.aegisthus.input.readers.CommitLogRecordReader;
-import com.netflix.aegisthus.input.readers.JsonRecordReader;
-import com.netflix.aegisthus.input.readers.SSTableRecordReader;
-import com.netflix.aegisthus.io.sstable.OffsetScanner;
-import com.netflix.aegisthus.io.sstable.SSTableScanner;
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 /**
  * The AegisthusInputFormat class handles creating splits and reading sstables,
@@ -104,7 +103,25 @@ public class AegisthusInputFormat extends FileInputFormat<Text, Text> {
 			}
 		}
 
-		if (convertors.size() == 0) {
+        // TODO: We need a better way to inject this information into the configuration, or extract it from the schema.
+        try {
+            convertors.put("searched_value",  TypeParser.parse("UTF8Type"));
+            convertors.put("searched_type",  TypeParser.parse("UTF8Type"));
+            convertors.put("st_name",  TypeParser.parse("UTF8Type"));
+            convertors.put("version",  TypeParser.parse("UTF8Type"));
+            convertors.put("last_update",  TypeParser.parse("DateType"));
+            convertors.put("rawdata",  TypeParser.parse("UTF8Type"));
+            convertors.put("result",  TypeParser.parse("UTF8Type"));
+            convertors.put("statuscode",  TypeParser.parse("UTF8Type"));
+            convertors.put("statustext",  TypeParser.parse("UTF8Type"));
+            convertors.put("uri",  TypeParser.parse("UTF8Type"));
+        } catch (SyntaxException e) {
+            throw new IOException(e);
+        } catch (ConfigurationException e) {
+            throw new IOException(e);
+        }
+
+        if (convertors.size() == 0) {
 			return null;
 		}
 		return convertors;
