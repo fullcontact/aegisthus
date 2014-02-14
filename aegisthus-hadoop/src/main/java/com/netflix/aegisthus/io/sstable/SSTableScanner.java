@@ -16,6 +16,12 @@
 package com.netflix.aegisthus.io.sstable;
 
 import com.google.common.collect.Maps;
+import org.apache.cassandra.config.CFMetaData;
+import org.apache.cassandra.cql3.CFDefinition;
+import org.apache.cassandra.cql3.ColumnIdentifier;
+import org.apache.cassandra.cql3.QueryProcessor;
+import org.apache.cassandra.cql3.statements.CreateColumnFamilyStatement;
+import org.apache.cassandra.db.ColumnFamilyType;
 import org.apache.cassandra.db.ColumnSerializer;
 import org.apache.cassandra.db.CounterColumn;
 import org.apache.cassandra.db.DeletedColumn;
@@ -58,7 +64,10 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 	public static final String KEY = "$$KEY$$";
 	public static final String SUB_KEY = "$$SUB_KEY$$";
 
-	private AbstractType columnNameConvertor = null;
+    private static CFMetaData cfm;
+    private static CFDefinition cfd;
+
+    private AbstractType columnNameConvertor = null;
 
 	private Map<String, AbstractType> converters = Maps.newHashMap();
 	private AbstractType keyConvertor = null;
@@ -109,7 +118,22 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 		}
 	}
 
-	public void close() {
+    public SSTableScanner(DataInputStream input, Map<String, AbstractType> converters, long end, boolean promotedIndex, String cql) {
+        this(input, converters, end, promotedIndex);
+
+        try {
+            CreateColumnFamilyStatement statement = (CreateColumnFamilyStatement) QueryProcessor.parseStatement(cql).prepare().statement;
+            cfm = new CFMetaData("assess", "kvs_strict", ColumnFamilyType.Standard, statement.comparator, null);
+            statement.applyPropertiesTo(cfm);
+
+            cfd = cfm.getCfDef();
+            LOG.info("cf def " + cfd);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void close() {
 		if (input != null) {
 			try {
 				((DataInputStream) input).close();
@@ -130,6 +154,26 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 		}
 		return defaultType;
 	}
+
+    /**
+     * Use the column name to determine which type to use when serializing the column values.
+     *
+     * @param columnName
+     * @param defaultType
+     *
+     * @return Cassandra column type.
+     */
+    private AbstractType getColumnValueConvertor(final String columnName, final AbstractType defaultType) {
+        final ColumnIdentifier colId = new ColumnIdentifier(columnName, false);
+        final CFDefinition.Name name = cfd.get(colId);
+
+        if(name == null) {
+            return defaultType;
+        }
+
+        final AbstractType<?> type = name.type;
+        return type != null ? type : defaultType;
+    }
 
 	public long getDatasize() {
 		return datasize;
@@ -233,7 +277,7 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
                 sb.append("[\"");
                 sb.append(cn);
                 sb.append("\", \"");
-                sb.append(getConvertor(getColumnKey(cn)).getString(column.value()));
+                sb.append(getColumnValueConvertor(handleCompositeColumnName(cn), BytesType.instance).getString(column.value()));
                 sb.append("\", ");
                 sb.append(column.timestamp());
 
@@ -264,10 +308,18 @@ public class SSTableScanner extends SSTableReader implements Iterator<String> {
 		}
 	}
 
-    private String getColumnKey(String columnName) {
-        String columnKey = columnName.substring(columnName.lastIndexOf(":") + 1);
+    /**
+     * Return the actual column name from a composite column name.
+     *
+     * i.e. key_1:key_2:key_3:column_name
+     *
+     * @param columnName
+     * @return
+     */
+    private String handleCompositeColumnName(final String columnName) {
+        final String columnKey = columnName.substring(columnName.lastIndexOf(":") + 1);
         LOG.info(String.format("For column name %s column key: %s", columnName, columnKey));
-        return columnKey;
+        return columnKey.equals("") ? columnName : columnKey;
     }
 
     private String getSanitizedName(ByteBuffer name, AbstractType convertor) {

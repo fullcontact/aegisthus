@@ -45,7 +45,7 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
 
     static {
         try {
-            String cql = "CREATE TABLE results ( searched_value text, searched_type text, st_name text, version text, last_update timestamp, rawdata text, result text, statuscode text, statustext text, uri text, PRIMARY KEY (searched_value, searched_type, st_name, version)) WITH bloom_filter_fp_chance=0.010000 AND caching='KEYS_ONLY' AND comment='' AND dclocal_read_repair_chance=0.000000 AND gc_grace_seconds=864000 AND index_interval=128 AND read_repair_chance=0.100000 AND replicate_on_write='true' AND populate_io_cache_on_flush='false' AND default_time_to_live=0 AND speculative_retry='99.0PERCENTILE' AND memtable_flush_period_in_ms=0 AND compaction={'class': 'SizeTieredCompactionStrategy'} AND compression={'sstable_compression': 'LZ4Compressor'};";
+            String cql = "CREATE TABLE results (searched_value text, searched_type text, st_name text, version text, last_update timestamp, rawdata text, result text, statuscode text, statustext text, uri text, PRIMARY KEY (searched_value, searched_type, st_name, version)) WITH bloom_filter_fp_chance=0.010000 AND caching='KEYS_ONLY' AND comment='' AND dclocal_read_repair_chance=0.000000 AND gc_grace_seconds=864000 AND read_repair_chance=0.100000 AND replicate_on_write='true' AND populate_io_cache_on_flush='false' AND compaction={'class': 'SizeTieredCompactionStrategy'} AND compression={'sstable_compression': 'SnappyCompressor'};";
 //            String cql = "CREATE TABLE assess.kvs_strict ( part_key text, range_key text, version int, c_enc text, c_schema_ver text, content blob, is_deleted boolean, m_enc text, m_schema_ver text, metadata blob, modified timestamp, PRIMARY KEY ((part_key, range_key), version)) WITH CLUSTERING ORDER BY (version DESC) AND bloom_filter_fp_chance=0.010000 AND caching='KEYS_ONLY' AND comment='' AND dclocal_read_repair_chance=0.000000 AND gc_grace_seconds=864000 AND read_repair_chance=0.100000 AND replicate_on_write='true' AND populate_io_cache_on_flush='false' AND compaction={'class': 'SizeTieredCompactionStrategy'} AND compression={'sstable_compression': 'SnappyCompressor'};";
             CreateColumnFamilyStatement statement = (CreateColumnFamilyStatement) QueryProcessor.parseStatement(cql).prepare().statement;
             cfm = new CFMetaData("assess", "kvs_strict", ColumnFamilyType.Standard, statement.comparator, null);
@@ -82,42 +82,57 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
                 continue;
 
             String name = (String) col.get(0);
+            System.out.println("Name: " + name);
             DataByteArray colValue = (DataByteArray) col.get(1);
 
+            // We don't have versions in the column names at all. biv
             // kvs3 names are of the form version:<column name>
-            String[] nameParts = name.split(":");
+//            String[] nameParts = name.split(":");
+//
+//            if (nameParts.length == 1) {
+//                continue; // CQL3 includes "<version>:" columns for some reason
+//            }
+//            if (nameParts.length != 2) {
+//                LOG.warn("couldn't parse name: " + name);
+//            }
 
-            if (nameParts.length == 1)
-                continue; // CQL3 includes "<version>:" columns for some reason
-            if (nameParts.length != 2) {
-                LOG.warn("couldn't parse name: " + name);
+//            int version = Integer.parseInt(nameParts[0]);
+//            String colName = nameParts[1];
+
+            // TODO: How do we handle any column name? i.e. ours are in the format foo:bar:blah:name where foo:bar:blah are the composite key.
+            String colName = name.substring(name.lastIndexOf(':') + 1);
+            // Ok, I know that if the colName is empty it's the first column of the composite primary key. This is really crap...need to figure out how to really do this.
+            if(colName.equals("")) {
+                colName = "searched_value"; // This is BS!
             }
+            System.out.println("Column name: " + colName);
 
-            int version = Integer.parseInt(nameParts[0]);
-            String colName = nameParts[1];
+//            if (currentVersion == -1) {
+//                currentVersion = version;
+//            } else if (currentVersion < version) {
+//                out.close();
+//                out = new ByteArrayOutputStream();
+//                jsonGen = jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8);
+//                jsonGen.writeStartObject();
+//                currentVersion = version;
+//            }
 
-            if (currentVersion == -1) {
-                currentVersion = version;
-            } else if (currentVersion < version) {
-                out.close();
-                out = new ByteArrayOutputStream();
-                jsonGen = jsonFactory.createJsonGenerator(out, JsonEncoding.UTF8);
-                jsonGen.writeStartObject();
-                currentVersion = version;
-            }
-
-            if (version == currentVersion) {
+//            if (version == currentVersion) {
+            try {
                 writeColumn(jsonGen, colName, colValue);
+            } catch (Exception e) {
+                // Swallow this for now, I just want to see what the output actually is.
             }
+//            }
         }
 
         jsonGen.writeEndObject();
         jsonGen.flush();
 
-        if (currentVersion != -1) {
+//        if (currentVersion != -1) {
             context.write(new Text(formatKey(rowKey.toString()) + "\t" + currentVersion),
                     new Text(out.toByteArray()));
-        }
+//        }
         out.close();
     }
 
@@ -126,7 +141,8 @@ public class KvsStrictMapper extends Mapper<Text, Text, Text, Text> {
         ColumnIdentifier colId = new ColumnIdentifier(colName, false);
         CFDefinition.Name name = cfd.get(colId);
         AbstractType<?> type = name.type;
-        
+        System.out.println(type.toString());
+
         json.writeFieldName(colName);
 
         if (type instanceof Int32Type) {

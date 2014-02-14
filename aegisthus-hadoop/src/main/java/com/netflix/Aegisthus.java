@@ -121,36 +121,27 @@ public class Aegisthus extends Configured implements Tool {
 
 	@Override
 	public int run(String[] args) throws Exception {
-		Job job1 = new Job(getConf());
+		Job job = new Job(getConf());
 
-        job1.getConfiguration().set("mapred.child.java.opts", "-Xmx2G");
-        job1.getConfiguration().set("mapred.output.compress", "true");
-        job1.getConfiguration().set("mapred.output.compression.codec", "org.apache.hadoop.io.compress.GzipCodec");
-        job1.getConfiguration().set("aegisthus.columntype", "CompositeType(UTF8Type, UTF8Type, UTF8Type, UTF8Type)");
-        job1.getConfiguration().set("aegisthus.keytype", "UTF8Type");
+        // TODO: These should all be -D options or better.
+        job.getConfiguration().set("mapred.child.java.opts", "-Xmx2G");
+        job.getConfiguration().set("mapred.output.compress", "true");
+        job.getConfiguration().set("mapred.output.compression.codec", "org.apache.hadoop.io.compress.GzipCodec");
+        job.getConfiguration().set("aegisthus.columntype", "CompositeType(UTF8Type, UTF8Type, UTF8Type, UTF8Type)");
+        job.getConfiguration().set("aegisthus.keytype", "UTF8Type");
+        job.getConfiguration().set("aegisthus.tabledef", "CREATE TABLE results (searched_value text, searched_type text, st_name text, version text, last_update timestamp, rawdata text, result text, statuscode text, statustext text, uri text, PRIMARY KEY (searched_value, searched_type, st_name, version)) WITH bloom_filter_fp_chance=0.010000 AND caching='KEYS_ONLY' AND comment='' AND dclocal_read_repair_chance=0.000000 AND gc_grace_seconds=864000 AND read_repair_chance=0.100000 AND replicate_on_write='true' AND populate_io_cache_on_flush='false' AND compaction={'class': 'SizeTieredCompactionStrategy'} AND compression={'sstable_compression': 'SnappyCompressor'};");
 
-        job1.getConfiguration().set("searched_value", "UTF8Type");
-        job1.getConfiguration().set("searched_type", "UTF8Type");
-        job1.getConfiguration().set("st_name", "UTF8Type");
-        job1.getConfiguration().set("version", "UTF8Type");
-        job1.getConfiguration().set("last_update", "DateType");
-        job1.getConfiguration().set("rawdata", "UTF8Type");
-        job1.getConfiguration().set("result", "UTF8Type");
-        job1.getConfiguration().set("statuscode", "UTF8Type");
-        job1.getConfiguration().set("statustext", "UTF8Type");
-        job1.getConfiguration().set("uri", "UTF8Type");
-
-		job1.setJarByClass(Aegisthus.class);
+		job.setJarByClass(Aegisthus.class);
 		CommandLine cl = getOptions(args);
 		if (cl == null) {
 			return 1;
 		}
-		job1.setInputFormatClass(AegisthusInputFormat.class);
-		job1.setMapOutputKeyClass(Text.class);
-		job1.setMapOutputValueClass(Text.class);
-		job1.setOutputFormatClass(TextOutputFormat.class);
-		job1.setMapperClass(Map.class);
-		job1.setReducerClass(CassReducer.class);
+		job.setInputFormatClass(AegisthusInputFormat.class);
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(Text.class);
+		job.setOutputFormatClass(TextOutputFormat.class);
+		job.setMapperClass(Map.class);
+		job.setReducerClass(CassReducer.class);
 		List<Path> paths = Lists.newArrayList();
 		if (cl.hasOption(OPT_INPUT)) {
 			for (String input : cl.getOptionValues(OPT_INPUT)) {
@@ -158,27 +149,31 @@ public class Aegisthus extends Configured implements Tool {
 			}
 		}
 		if (cl.hasOption(OPT_INPUTDIR)) {
-			paths.addAll(getDataFiles(job1.getConfiguration(), cl.getOptionValue(OPT_INPUTDIR)));
+			paths.addAll(getDataFiles(job.getConfiguration(), cl.getOptionValue(OPT_INPUTDIR)));
 		}
-		TextInputFormat.setInputPaths(job1, paths.toArray(new Path[0]));
-		TextOutputFormat.setOutputPath(job1, new Path(cl.getOptionValue(OPT_OUTPUT), "step1"));
+		TextInputFormat.setInputPaths(job, paths.toArray(new Path[0]));
+		TextOutputFormat.setOutputPath(job, new Path(cl.getOptionValue(OPT_OUTPUT), "step1"));
 		
-		job1.submit();
-		job1.waitForCompletion(true);
-		
-		Job job2 = new Job(getConf());
-		job2.setJarByClass(Aegisthus.class);
-		job2.setInputFormatClass(AegisthusInputFormat.class);
-		job2.setMapOutputKeyClass(Text.class);
-		job2.setMapOutputValueClass(Text.class);
-		job2.setOutputFormatClass(TextOutputFormat.class);
-		job2.setMapperClass(KvsStrictMapper.class);
-		AegisthusInputFormat.setInputPaths(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step1"));
-		TextOutputFormat.setOutputPath(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step2"));
+		job.submit();
+		job.waitForCompletion(true);
+        System.out.println(job.getJobID());
+        System.out.println(job.getTrackingURL());
+        boolean success = job.waitForCompletion(true);
+        return success ? 0 : 1;
 
-		job2.submit();
-		job2.waitForCompletion(true);
-		boolean success = job2.isSuccessful();
-		return success ? 0 : 1;
+//		Job job2 = new Job(getConf());
+//		job2.setJarByClass(Aegisthus.class);
+//		job2.setInputFormatClass(AegisthusInputFormat.class);
+//		job2.setMapOutputKeyClass(Text.class);
+//		job2.setMapOutputValueClass(Text.class);
+//		job2.setOutputFormatClass(TextOutputFormat.class);
+//		job2.setMapperClass(KvsStrictMapper.class);
+//		AegisthusInputFormat.setInputPaths(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step1"));
+//		TextOutputFormat.setOutputPath(job2, new Path(cl.getOptionValue(OPT_OUTPUT), "step2"));
+//
+//		job2.submit();
+//		job2.waitForCompletion(true);
+//		boolean success = job2.isSuccessful();
+//		return success ? 0 : 1;
 	}
 }

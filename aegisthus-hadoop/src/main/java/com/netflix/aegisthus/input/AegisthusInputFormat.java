@@ -104,22 +104,22 @@ public class AegisthusInputFormat extends FileInputFormat<Text, Text> {
 		}
 
         // TODO: We need a better way to inject this information into the configuration, or extract it from the schema.
-        try {
-            convertors.put("searched_value",  TypeParser.parse("UTF8Type"));
-            convertors.put("searched_type",  TypeParser.parse("UTF8Type"));
-            convertors.put("st_name",  TypeParser.parse("UTF8Type"));
-            convertors.put("version",  TypeParser.parse("UTF8Type"));
-            convertors.put("last_update",  TypeParser.parse("DateType"));
-            convertors.put("rawdata",  TypeParser.parse("UTF8Type"));
-            convertors.put("result",  TypeParser.parse("UTF8Type"));
-            convertors.put("statuscode",  TypeParser.parse("UTF8Type"));
-            convertors.put("statustext",  TypeParser.parse("UTF8Type"));
-            convertors.put("uri",  TypeParser.parse("UTF8Type"));
-        } catch (SyntaxException e) {
-            throw new IOException(e);
-        } catch (ConfigurationException e) {
-            throw new IOException(e);
-        }
+//        try {
+//            convertors.put("searched_value",  TypeParser.parse("UTF8Type"));
+//            convertors.put("searched_type",  TypeParser.parse("UTF8Type"));
+//            convertors.put("st_name",  TypeParser.parse("UTF8Type"));
+//            convertors.put("version",  TypeParser.parse("UTF8Type"));
+//            convertors.put("last_update",  TypeParser.parse("DateType"));
+//            convertors.put("rawdata",  TypeParser.parse("UTF8Type"));
+//            convertors.put("result",  TypeParser.parse("UTF8Type"));
+//            convertors.put("statuscode",  TypeParser.parse("UTF8Type"));
+//            convertors.put("statustext",  TypeParser.parse("UTF8Type"));
+//            convertors.put("uri",  TypeParser.parse("UTF8Type"));
+//        } catch (SyntaxException e) {
+//            throw new IOException(e);
+//        } catch (ConfigurationException e) {
+//            throw new IOException(e);
+//        }
 
         if (convertors.size() == 0) {
 			return null;

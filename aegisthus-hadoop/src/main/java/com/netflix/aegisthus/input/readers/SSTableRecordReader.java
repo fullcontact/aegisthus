@@ -15,17 +15,16 @@
  */
 package com.netflix.aegisthus.input.readers;
 
-import java.io.DataInputStream;
-import java.io.IOError;
-import java.io.IOException;
-
+import com.netflix.aegisthus.input.AegSplit;
+import com.netflix.aegisthus.io.sstable.SSTableScanner;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
-import com.netflix.aegisthus.input.AegSplit;
-import com.netflix.aegisthus.io.sstable.SSTableScanner;
+import java.io.DataInputStream;
+import java.io.IOError;
+import java.io.IOException;
 
 public class SSTableRecordReader extends AegisthusRecordReader {
 	private static final Log LOG = LogFactory.getLog(SSTableRecordReader.class);
@@ -62,7 +61,8 @@ public class SSTableRecordReader extends AegisthusRecordReader {
 			scanner = new SSTableScanner(	new DataInputStream(split.getInput(ctx.getConfiguration())),
 											split.getConvertors(),
 											end,
-											promotedIndex);
+											promotedIndex,
+                                            ctx.getConfiguration().get("aegisthus.tabledef")); // TODO: handle the missing config.
 			scanner.skipUnsafe(start);
 			this.pos = start;
 		} catch (IOException e) {
